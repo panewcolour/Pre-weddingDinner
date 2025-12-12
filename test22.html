@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>청첩장 퀘스트: 전설의 시작</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DungGeunMo&display=swap" rel="stylesheet">
+    <style>
+        /* 둥근모 폰트는 한글 픽셀 폰트로 레트로 느낌을 줍니다 */
+        body {
+            font-family: 'DungGeunMo', 'Press Start 2P', cursive;
+            background-color: #202020;
+            color: white;
+            overflow: hidden; /* 게임 화면 느낌 */
+            user-select: none; /* 꾹 누르기 시 텍스트 선택 방지 */
+            -webkit-user-select: none;
+        }
+
+        .pixel-border {
+            box-shadow: 
+                -4px 0 0 0 white,
+                4px 0 0 0 white,
+                0 -4px 0 0 white,
+                0 4px 0 0 white;
+            margin: 4px;
+        }
+
+        .pixel-btn {
+            background-color: #3b82f6;
+            box-shadow: 
+                -4px 0 0 0 #1d4ed8,
+                4px 0 0 0 #1d4ed8,
+                0 -4px 0 0 #1d4ed8,
+                0 4px 0 0 #1d4ed8;
+            transition: transform 0.1s;
+        }
+        
+        .pixel-btn:active {
+            transform: scale(0.95);
+        }
+
+        .pixel-btn-red {
+            background-color: #ef4444;
+            box-shadow: 
+                -4px 0 0 0 #b91c1c,
+                4px 0 0 0 #b91c1c,
+                0 -4px 0 0 #b91c1c,
+                0 4px 0 0 #b91c1c;
+        }
+
+        /* 다시하기 버튼용 초록색 스타일 추가 */
+        .pixel-btn-green {
+            background-color: #10b981;
+            box-shadow: 
+                -4px 0 0 0 #059669,
+                4px 0 0 0 #059669,
+                0 -4px 0 0 #059669,
+                0 4px 0 0 #059669;
+        }
+
+        /* 깜빡이는 커서 효과 */
+        .cursor::after {
+            content: '▼';
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .scanline {
+            width: 100%;
+            height: 100px;
+            z-index: 10;
+            background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0,0,0,0) 100%);
+            opacity: 0.1;
+            position: absolute;
+            bottom: 100%;
+            animation: scanline 10s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes scanline {
+            0% { bottom: 100%; }
+            100% { bottom: -100px; }
+        }
+        
+        /* 흔들리는 애니메이션 */
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        /* --- New Game Styles (Walking Game) --- */
+        #game-canvas {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            /* 변경된 부분: 노을 그라데이션 (남색 -> 보라 -> 분홍 -> 주황) */
+            background: linear-gradient(to bottom, #1e1b4b 0%, #4c1d95 30%, #be185d 60%, #f97316 85%, #fdba74 100%);
+            overflow: hidden;
+        }
+        
+        /* Pixel Background Elements */
+        .bg-layer {
+            position: absolute;
+            width: 200%; /* Scrolling loop */
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+
+        /* 별 반짝임 애니메이션 */
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 0.4; }
+        }
+
+        .stars {
+            background-image: 
+                /* 작은 별들 */
+                radial-gradient(1px 1px at 25px 5px, white, transparent),
+                radial-gradient(1px 1px at 50px 25px, white, transparent),
+                radial-gradient(1px 1px at 125px 20px, white, transparent),
+                radial-gradient(1px 1px at 180px 10px, white, transparent),
+                /* 중간 별들 */
+                radial-gradient(1.5px 1.5px at 50px 75px, white, transparent),
+                radial-gradient(1.5px 1.5px at 150px 40px, white, transparent),
+                /* 큰 별들 */
+                radial-gradient(2px 2px at 15px 125px, white, transparent),
+                radial-gradient(2.5px 2.5px at 110px 80px, white, transparent);
+            background-size: 200px 200px;
+            opacity: 0.8;
+            animation: twinkle 4s infinite ease-in-out;
+        }
+
+        /* 달 (Moon) 스타일 추가 */
+        .moon {
+            position: absolute;
+            top: 10%;
+            right: 15%;
+            width: 50px;
+            height: 50px;
+            background: transparent;
+            border-radius: 50%;
+            /* 초승달 모양 만들기 */
+            box-shadow: -10px 5px 0 0 #fde047; 
+            filter: drop-shadow(0 0 10px #fde047); /* 빛나는 효과 */
+            opacity: 0.9;
+            z-index: 1;
+        }
+
+        .mountains {
+            bottom: 40%;
+            height: 20%;
+            background: 
+                conic-gradient(from 135deg at 25% 100%, #334155 0deg, #334155 90deg, transparent 90deg),
+                conic-gradient(from 135deg at 75% 100%, #1e293b 0deg, #1e293b 90deg, transparent 90deg);
+            background-size: 100px 100%;
+            z-index: 2; /* 달보다 앞에 */
+        }
+
+        .ground-deco {
+            bottom: 0;
+            height: 40%;
+            background-image: 
+                radial-gradient(4px 4px at 50px 20px, #22c55e, transparent),
+                radial-gradient(4px 4px at 150px 50px, #16a34a, transparent);
+            background-size: 200px 100px;
+            z-index: 3;
+        }
+
+        /* Characters */
+        .character-container {
+            position: absolute;
+            bottom: 35%; /* On top of ground */
+            left: 10%;
+            display: flex;
+            gap: 2px;
+            transition: transform 0.1s;
+            z-index: 10;
+        }
+        
+        .char-sprite {
+            font-size: 2.5rem;
+            filter: drop-shadow(4px 0px 0px rgba(0,0,0,0.5));
+            position: relative;
+        }
+
+        .walking .char-sprite {
+            animation: bounce 0.4s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-5px); }
+        }
+
+        /* Target Friend / Castle */
+        .target-object {
+            position: absolute;
+            bottom: 35%;
+            right: -50px; /* Starts off screen */
+            font-size: 2.5rem;
+            transition: right 0.1s linear;
+            z-index: 9;
+        }
+
+        /* Modal for Memory */
+        .pixel-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #1f2937;
+            border: 4px solid white;
+            padding: 1rem;
+            width: 80%;
+            z-index: 50;
+            text-align: center;
+            box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
+            display: none; /* Hidden by default */
+        }
+
+        .pixel-bar-bg {
+            width: 80%;
+            height: 10px;
+            background: #374151;
+            border: 2px solid white;
+            position: absolute;
+            bottom: 20px;
+            left: 10%;
+            z-index: 20;
+        }
+        .pixel-bar-fill {
+            height: 100%;
+            background: #fbbf24;
+            width: 0%;
+            transition: width 0.1s;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex items-center justify-center bg-gray-900 relative">
+
+    <div class="scanline"></div>
+
+    <!-- 게임 컨테이너 -->
+    <div class="w-full max-w-md h-full md:h-auto md:aspect-[9/16] bg-black md:border-4 md:border-gray-600 relative flex flex-col justify-between p-4 overflow-hidden">
+        
+        <!-- 상단: 비주얼 영역 -->
+        <div id="game-screen" class="flex-1 border-4 border-white p-4 flex flex-col items-center justify-center bg-indigo-900 relative overflow-hidden">
+            
+            <!-- Scene 1: Start -->
+            <div id="scene-start" class="text-center w-full z-20">
+                <h1 class="text-3xl text-yellow-400 mb-8 leading-relaxed drop-shadow-md">
+                    QUEST:<br>WEDDING<br>INVITATION
+                </h1>
+                <p class="text-sm text-gray-300 animate-pulse">TOUCH TO START</p>
+            </div>
+
+            <!-- Scene 2: Encounter -->
+            <div id="scene-encounter" class="hidden flex flex-col items-center w-full z-20">
+                <div class="text-6xl mb-4">🤵👰</div>
+                <div class="text-xl text-yellow-300 mb-2">예비 부부(이)가<br>나타났다!</div>
+                <div class="w-full bg-black/50 p-2 text-xs text-left font-mono text-green-400 mt-4">
+                    > HP: 100/100<br>
+                    > MP: 100/100<br>
+                    > 상태: 결혼 준비 중<br>
+                    > 아이템: 청첩장 (레어)
+                </div>
+            </div>
+
+             <!-- Scene 3: Reward Info -->
+             <div id="scene-reward" class="hidden flex flex-col items-center w-full text-center z-20">
+                <div class="text-5xl mb-6">🍖🍺</div>
+                <h2 class="text-xl text-yellow-300 mb-4">보상 목록</h2>
+                <ul class="text-left text-sm space-y-2 w-3/4 mx-auto">
+                    <li class="text-green-300">★ 전설의 청첩장</li>
+                    <li class="text-blue-300">★ 맛있는 식사 (SSS급)</li>
+                    <li class="text-pink-300">★ 무제한 주류 & 수다</li>
+                </ul>
+            </div>
+
+            <!-- Scene Game: Walking Quest (New!) -->
+            <div id="scene-game" class="hidden w-full h-full absolute top-0 left-0">
+                <div id="game-canvas">
+                    <!-- Background Layers -->
+                    <div class="bg-layer stars" id="bg-stars"></div>
+                    <!-- 달 (Moon) 추가 -->
+                    <div class="moon"></div>
+                    <div class="bg-layer mountains" id="bg-mountains"></div>
+                    <div class="bg-layer ground-deco" id="bg-ground"></div>
+
+                    <!-- Game UI -->
+                    <div class="absolute top-4 w-full text-center z-10">
+                        <p class="text-yellow-300 text-xs animate-pulse bg-black/50 inline-block px-2 py-1 rounded">
+                            화면을 꾹 눌러 친구를 찾으세요!
+                        </p>
+                    </div>
+
+                    <!-- Characters -->
+                    <div class="character-container" id="player-party">
+                        <div class="char-sprite">👰</div>
+                    </div>
+
+                    <!-- Target (Friend/Castle) -->
+                    <div id="game-target" class="target-object">👩‍🦰</div>
+
+                    <!-- Progress Bar -->
+                    <div class="pixel-bar-bg">
+                        <div id="walk-progress" class="pixel-bar-fill"></div>
+                    </div>
+
+                    <!-- Memory Modal -->
+                    <div id="memory-modal" class="pixel-modal">
+                        <h3 class="text-yellow-400 mb-2 text-sm">추억을 발견했다!</h3>
+                        <div id="modal-content" class="w-full aspect-video bg-gray-700 mb-4 flex items-center justify-center text-4xl border-2 border-white">
+                            📸
+                        </div>
+                        <p id="modal-text" class="text-xs mb-4 text-gray-300">...</p>
+                        <button id="modal-next-btn" class="pixel-btn text-white py-2 px-4 text-xs w-full">
+                            친구와 함께 계속 찾기
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scene 4: Result -->
+            <div id="scene-result" class="hidden flex flex-col items-center w-full overflow-y-auto z-20">
+                <div class="text-4xl mb-4 animate-bounce">🎉 QUEST CLEAR! 🎉</div>
+                
+                <div class="bg-gray-800 border-2 border-white p-4 w-full text-left text-sm mb-4">
+                    <p class="text-yellow-300 mb-2">[ 만남의 장소 ]</p>
+                    <p class="mb-1">📅 일시: 2024년 5월 20일(토) 18:30</p>
+                    <p class="mb-4">📍 장소: 맛있는 고기집 강남점</p>
+                    <p class="text-gray-400 text-xs">(서울 강남구 테헤란로 123)</p>
+                </div>
+
+                <div class="bg-gray-800 border-2 border-white p-4 w-full text-left text-sm">
+                   <p class="text-pink-300 mb-2">[ 파티원 준비물 ]</p>
+                   <p>1. 빈 속 (필수)</p>
+                   <p>2. 축하하는 마음</p>
+                   <p>3. 튼튼한 간</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 하단: 대화/컨트롤 영역 -->
+        <div class="mt-4 h-48 border-4 border-white bg-blue-900 p-4 relative z-30">
+            <div class="absolute top-0 left-4 -mt-3 bg-blue-900 px-2 text-yellow-300 text-xs border border-white">MESSAGE</div>
+            
+            <!-- 텍스트 출력 영역 -->
+            <div id="dialogue-box" class="text-white text-sm leading-6 cursor min-h-[60px]">
+                <!-- JS로 텍스트 타이핑 -->
+            </div>
+
+            <!-- 버튼 영역 (선택지) -->
+            <div id="action-buttons" class="hidden mt-4 flex gap-2 justify-center">
+                <!-- 버튼은 JS로 동적 생성 -->
+            </div>
+            
+            <!-- 다음 버튼 (화살표) -->
+            <div id="next-indicator" class="hidden absolute bottom-2 right-4 animate-bounce text-yellow-300 text-xl cursor-pointer">
+                ▼
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JS Logic -->
+    <script>
+        // --- 설정 데이터 ---
+        const config = {
+            groomName: "철수",
+            brideName: "영희",
+            date: "2024년 5월 20일(토) 오후 6시 30분",
+            locationName: "맛있는 고기집 강남점",
+            address: "서울 강남구 테헤란로 123",
+            mapLink: "https://map.naver.com",
+            
+            // 추억 데이터 (친구를 만날 때마다 하나씩 나옴)
+            // 친구1, 친구2, 친구3, 친구4 순서
+            // imgUrl 부분에 실제 사진 주소를 넣으세요 (예: "./images/photo1.jpg" 또는 "https://...")
+            memories: [
+                { 
+                    id: 1, 
+                    text: "고등학교 시절, 매점에서 빵 나눠먹던 우리...", 
+                    color: "bg-red-500", 
+                    emoji: "🏫", 
+                    friendEmoji: "👩‍🦰",
+                    imgUrl: "https://via.placeholder.com/400x225/ef4444/ffffff?text=Photo+1" 
+                },
+                { 
+                    id: 2, 
+                    text: "첫 해외여행, 길 잃어서 울 뻔했던 날!", 
+                    color: "bg-green-500", 
+                    emoji: "✈️", 
+                    friendEmoji: "🧑‍🦱",
+                    imgUrl: "https://via.placeholder.com/400x225/22c55e/ffffff?text=Photo+2"
+                },
+                { 
+                    id: 3, 
+                    text: "취업 준비하느라 밤새며 서로 응원했던 기억", 
+                    color: "bg-blue-500", 
+                    emoji: "💻", 
+                    friendEmoji: "👱‍♀️",
+                    imgUrl: "https://via.placeholder.com/400x225/3b82f6/ffffff?text=Photo+3"
+                },
+                { 
+                    id: 4, 
+                    text: "드디어 다 모였다! 이제 성으로 가자!", 
+                    color: "bg-purple-500", 
+                    emoji: "🙌", 
+                    friendEmoji: "👧",
+                    imgUrl: "https://via.placeholder.com/400x225/a855f7/ffffff?text=Photo+4"
+                }
+            ]
+        };
+
+        // --- 상태 관리 ---
+        let currentScene = 0;
+        let isTyping = false;
+        
+        const dialogueBox = document.getElementById('dialogue-box');
+        const nextIndicator = document.getElementById('next-indicator');
+        const actionButtons = document.getElementById('action-buttons');
+        const gameScreen = document.getElementById('game-screen');
+
+        // --- 시나리오 데이터 ---
+        const scenario = [
+            {
+                // 0: Start
+                sceneId: 'scene-start',
+                text: "야생의 [청첩장 모임] 퀘스트가 발생했다! 화면을 터치하세요.",
+                type: 'tap'
+            },
+            {
+                // 1: Intro
+                sceneId: 'scene-encounter',
+                text: `앗! ${config.groomName}와(과) ${config.brideName}이(가) 나타났다! 그들은 뭔가 줄 것이 있는 눈치다...`,
+                type: 'next'
+            },
+            {
+                // 2: Offer
+                sceneId: 'scene-encounter',
+                text: "\"우리 결혼해! 맛있는 밥 살 테니까 청첩장 받아줄래?\"",
+                type: 'next'
+            },
+            {
+                // 3: Reward
+                sceneId: 'scene-reward',
+                text: "퀘스트 완료 시 엄청난 보상이 기다리고 있다. 파티에 참여하시겠습니까?",
+                type: 'choice',
+                choices: [
+                    { text: "수락한다 (YES)", action: 'accept' },
+                    { text: "거절한다 (NO)", action: 'refuse' }
+                ]
+            },
+            {
+                // 4: Game Intro
+                sceneId: 'scene-encounter', 
+                text: "좋아! 하지만 초대장은 저 멀리 성(Castle)에 있다네. 흩어진 친구들을 모아 함께 가자!",
+                type: 'next'
+            },
+            {
+                // 5: Game Scene (Walking)
+                sceneId: 'scene-game',
+                text: "화면을 꾹 누르면 앞으로 걸어갑니다. 친구들을 찾아주세요!",
+                type: 'game'
+            },
+            {
+                // 6: Result (Accept)
+                sceneId: 'scene-result',
+                text: `모두 성에 도착했다! 봉인이 해제되어 파티 정보가 공개되었습니다.`,
+                type: 'final',
+                choices: [
+                    { text: "지도 보기", action: 'map' },
+                    { text: "게임 다시하기", action: 'replay' }
+                ]
+            }
+        ];
+
+        // --- 타이핑 효과 함수 ---
+        function typeWriter(text, callback) {
+            isTyping = true;
+            dialogueBox.innerHTML = '';
+            dialogueBox.classList.add('cursor');
+            nextIndicator.classList.add('hidden');
+            actionButtons.classList.add('hidden');
+
+            let i = 0;
+            const speed = 40; 
+
+            function type() {
+                if (i < text.length) {
+                    dialogueBox.innerHTML += text.charAt(i);
+                    i++;
+                    setTimeout(type, speed);
+                } else {
+                    isTyping = false;
+                    if (callback) callback();
+                }
+            }
+            type();
+        }
+
+        // --- 씬 전환 함수 ---
+        function showScene(index) {
+            // 모든 씬 숨기기
+            ['scene-start', 'scene-encounter', 'scene-reward', 'scene-result', 'scene-game'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            
+            // 현재 씬 데이터 가져오기
+            const data = scenario[index];
+            
+            // 화면 보여주기
+            const sceneEl = document.getElementById(data.sceneId);
+            sceneEl.classList.remove('hidden');
+            
+            // 게임 씬일 경우 특별 초기화
+            if (data.type === 'game') {
+                initWalkingGame();
+            }
+
+            // 텍스트 타이핑 시작
+            typeWriter(data.text, () => {
+                if (data.type === 'next' || data.type === 'tap') {
+                    nextIndicator.classList.remove('hidden');
+                } else if (data.type === 'choice' || data.type === 'final') {
+                    showButtons(data.choices);
+                    // 추가됨: 초대장이 떴을 때도 폭죽 효과
+                    if (data.type === 'final') {
+                        confettiEffect();
+                    }
+                }
+            });
+        }
+
+        // --- 버튼 생성 함수 ---
+        function showButtons(choices) {
+            actionButtons.innerHTML = '';
+            actionButtons.classList.remove('hidden');
+            
+            choices.forEach(choice => {
+                const btn = document.createElement('button');
+                
+                let btnClass = "pixel-btn text-white py-2 px-4 text-xs md:text-sm font-bold w-full mb-2 border-2 border-white";
+                
+                if (choice.action === 'refuse') {
+                    btnClass = "pixel-btn-red text-white py-2 px-4 text-xs md:text-sm font-bold w-full mb-2 border-2 border-white";
+                } else if (choice.action === 'replay') {
+                    // 다시하기는 초록색 스타일
+                    btnClass = "pixel-btn-green text-white py-2 px-4 text-xs md:text-sm font-bold w-full mb-2 border-2 border-white";
+                }
+
+                btn.className = btnClass;
+                btn.innerText = choice.text;
+                
+                btn.onclick = () => handleAction(choice.action);
+                actionButtons.appendChild(btn);
+            });
+        }
+
+        // --- 액션 처리 핸들러 ---
+        function handleAction(action) {
+            if (action === 'accept') {
+                currentScene++;
+                showScene(currentScene);
+            } else if (action === 'refuse') {
+                dialogueBox.innerHTML = "거절은 거절한다! <br>선택지는 없다. 어서 수락해라!";
+                gameScreen.classList.add('shake');
+                setTimeout(() => gameScreen.classList.remove('shake'), 500);
+            } else if (action === 'map') {
+                window.open(config.mapLink, '_blank');
+            } else if (action === 'replay') {
+                // 게임 다시하기: 상태 리셋 후 첫 화면으로
+                currentScene = 0;
+                showScene(0);
+            }
+        }
+
+        // --- WALKING GAME LOGIC (NEW) ---
+        let gameAnimationFrame;
+        let isPressing = false;
+        let gameStage = 0; // 0~3: Friends, 4: Castle
+        let currentDistance = 0;
+        const TARGET_DISTANCE = 100; // 걸어야 하는 거리 (상대값)
+        const SPEED = 0.5;
+        
+        const playerPartyEl = document.getElementById('player-party');
+        const gameTargetEl = document.getElementById('game-target');
+        const walkProgressEl = document.getElementById('walk-progress');
+        const bgStars = document.getElementById('bg-stars');
+        const bgMountains = document.getElementById('bg-mountains');
+        const bgGround = document.getElementById('bg-ground');
+        
+        // Modal Elements
+        const memoryModal = document.getElementById('memory-modal');
+        const modalContent = document.getElementById('modal-content');
+        const modalText = document.getElementById('modal-text');
+        const modalNextBtn = document.getElementById('modal-next-btn');
+
+        function initWalkingGame() {
+            gameStage = 0;
+            currentDistance = 0;
+            
+            // 초기화: 신부만 있음
+            playerPartyEl.innerHTML = '<div class="char-sprite">👰</div>';
+            updateTarget();
+            
+            // 이벤트 리스너 (PC + Mobile)
+            const canvas = document.getElementById('game-canvas');
+            
+            const startWalk = (e) => { 
+                if(e.cancelable) e.preventDefault(); 
+                isPressing = true; 
+                playerPartyEl.classList.add('walking');
+            };
+            const stopWalk = (e) => { 
+                isPressing = false; 
+                playerPartyEl.classList.remove('walking');
+            };
+
+            canvas.addEventListener('mousedown', startWalk);
+            canvas.addEventListener('touchstart', startWalk);
+            
+            document.addEventListener('mouseup', stopWalk);
+            document.addEventListener('touchend', stopWalk);
+            
+            // Modal Button
+            modalNextBtn.onclick = nextStage;
+
+            // Start Loop
+            gameLoop();
+        }
+
+        function updateTarget() {
+            if (gameStage < 4) {
+                // 친구 찾기
+                gameTargetEl.innerText = config.memories[gameStage].friendEmoji;
+                gameTargetEl.style.fontSize = ""; // 기본 크기
+                dialogueBox.innerText = `친구 ${gameStage + 1}을(를) 찾으러 가는 중... (꾹 누르세요)`;
+            } else {
+                // 성 찾기 - 수정됨: 성 크기 키우기
+                gameTargetEl.innerText = "🏰";
+                gameTargetEl.style.fontSize = "8rem"; 
+                dialogueBox.innerText = "이제 다 모였다! 성으로 가자! (꾹 누르세요)";
+            }
+            // 타겟 위치 리셋 (화면 오른쪽 밖)
+            gameTargetEl.style.right = "-150px"; 
+            walkProgressEl.style.width = "0%";
+            currentDistance = 0;
+        }
+
+        function gameLoop() {
+            if (isPressing && memoryModal.style.display !== 'block') {
+                currentDistance += SPEED;
+                
+                // 배경 스크롤 효과 (Parallax)
+                bgStars.style.backgroundPositionX = `-${currentDistance * 0.5}px`;
+                bgMountains.style.backgroundPositionX = `-${currentDistance * 2}px`;
+                bgGround.style.backgroundPositionX = `-${currentDistance * 4}px`;
+
+                // 타겟 다가오기
+                // 80% 지점부터 타겟이 화면 안으로 들어옴
+                if (currentDistance > 80) {
+                    const offset = (currentDistance - 80) * 5; // 빠르게 접근
+                    gameTargetEl.style.right = `${10 + offset}px`;
+                }
+
+                // Progress Bar
+                walkProgressEl.style.width = `${Math.min(currentDistance, 100)}%`;
+
+                // 도달 체크
+                if (currentDistance >= TARGET_DISTANCE) {
+                    isPressing = false;
+                    playerPartyEl.classList.remove('walking');
+                    triggerEncounter();
+                    return; // Loop pauses until modal closed
+                }
+            }
+            
+            if (currentScene === 5) { // 게임 씬일 때만 루프
+                gameAnimationFrame = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function triggerEncounter() {
+            if (gameStage < 4) {
+                // 친구 만남 -> 추억 팝업
+                const memory = config.memories[gameStage];
+                
+                // 모달 내용 채우기 (이미지 표시)
+                // 이미지가 꽉 차게 보이도록 스타일 조정
+                modalContent.className = `w-full aspect-video mb-4 flex items-center justify-center overflow-hidden border-2 border-white bg-black relative`;
+                
+                if (memory.imgUrl) {
+                    modalContent.innerHTML = `<img src="${memory.imgUrl}" alt="Memory" class="w-full h-full object-cover">`;
+                } else {
+                    // 이미지가 없을 경우를 대비한 백업 (기존 방식)
+                    modalContent.classList.add(memory.color);
+                    modalContent.innerHTML = `<span class="text-5xl">${memory.emoji}</span>`;
+                }
+
+                modalText.innerText = memory.text;
+                modalNextBtn.innerText = "친구 합류 & 계속 가기";
+                
+                memoryModal.style.display = 'block';
+                dialogueBox.innerText = `친구를 발견했다!`;
+
+            } else {
+                // 성 도착 -> 엔딩
+                confettiEffect();
+                setTimeout(() => {
+                    currentScene++;
+                    showScene(currentScene);
+                }, 1000);
+            }
+        }
+
+        function nextStage() {
+            // 모달 닫기
+            memoryModal.style.display = 'none';
+            
+            // 파티원 추가
+            const newFriend = document.createElement('div');
+            newFriend.className = 'char-sprite';
+            newFriend.innerText = config.memories[gameStage].friendEmoji;
+            
+            // 주인공 뒤(왼쪽)에 추가 (prepend 사용)
+            playerPartyEl.prepend(newFriend);
+            
+            // 스테이지 증가
+            gameStage++;
+            
+            // 다음 목표 설정
+            updateTarget();
+            
+            // 게임 루프 재개
+            gameLoop();
+        }
+
+
+        // --- 폭죽 효과 ---
+        function confettiEffect() {
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff'];
+            for(let i=0; i<50; i++) {
+                const div = document.createElement('div');
+                div.style.position = 'absolute';
+                div.style.left = '50%';
+                div.style.top = '50%';
+                div.style.width = '10px';
+                div.style.height = '10px';
+                div.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                div.style.transition = 'all 1s ease-out';
+                div.style.zIndex = '100';
+                
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = 200 + Math.random() * 200;
+                const tx = Math.cos(angle) * velocity;
+                const ty = Math.sin(angle) * velocity;
+
+                gameScreen.appendChild(div);
+
+                setTimeout(() => {
+                    div.style.transform = `translate(${tx}px, ${ty}px) scale(0)`;
+                    div.style.opacity = '0';
+                }, 10);
+
+                setTimeout(() => div.remove(), 1000);
+            }
+        }
+
+        // --- 초기화 및 이벤트 리스너 ---
+        document.body.addEventListener('click', (e) => {
+            if (isTyping) return;
+            // 게임 씬에서는 클릭으로 넘어가지 않음
+            if (scenario[currentScene].type === 'game') return;
+            if (e.target.tagName === 'BUTTON') return; 
+
+            const currentType = scenario[currentScene].type;
+            
+            if (currentType === 'tap' || currentType === 'next') {
+                currentScene++;
+                if (currentScene < scenario.length) {
+                    showScene(currentScene);
+                }
+            }
+        });
+
+        // 시작
+        showScene(0);
+
+    </script>
+</body>
+</html>
